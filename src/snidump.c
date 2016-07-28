@@ -146,7 +146,7 @@ uint8_t flag_sni_available;
 int sni_handler (uint8_t *host_name, uint16_t host_name_length) {
 	uint16_t i;
 
-	log_info_nonl("%u.%u.%u.%u:%u -> %u.%u.%u.%u:[%u] ",
+	log_info_nonl("%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u ",
 		*(((uint8_t *)&(ip->saddr)) + 0),
 		*(((uint8_t *)&(ip->saddr)) + 1),
 		*(((uint8_t *)&(ip->saddr)) + 2),

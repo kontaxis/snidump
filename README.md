@@ -32,7 +32,7 @@ Password:
 1469712977.419971 [INFO] [*] Dump: 'test.pcap'
 1469712977.421253 [DEBUG] Dropped privileges: uid=-2, euid=-2, gid=-2, egid=-2
 1469712977.423938 [INFO] Capturing ...
-1469712985.430210 [INFO] 192.168.0.16:56842 -> 122.252.47.24:[443] 14:www.akamai.com
+1469712985.430210 [INFO] 192.168.0.16:56842 -> 122.252.47.24:443 14:www.akamai.com
 ^C
 1469712987.716071 [INFO] 2023 packets received
 1469712987.716078 [INFO] 0 packets dropped
@@ -48,6 +48,6 @@ $ bin/snidump -r test.pcap
 1469713000.327365 [INFO] [*] Trace: 'test.pcap'
 1469713000.327399 [INFO] [*] BPF: 'ip and tcp and (tcp[tcpflags] & tcp-push == tcp-push) and (dst port 80 or dst port 443)'
 1469713000.327570 [INFO] Capturing ...
-1469713000.327595 [INFO] 192.168.0.16:56842 -> 122.252.47.24:[443] 14:www.akamai.com
+1469713000.327595 [INFO] 192.168.0.16:56842 -> 122.252.47.24:443 14:www.akamai.com
 1469713000.327632 [INFO] Goodbye
 ```
