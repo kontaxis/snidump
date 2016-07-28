@@ -539,7 +539,7 @@ int main (int argc, char *argv[])
       strerror(errno));
 	}
 
-	log_info("Capturing ...");
+  log_info("%s ...", opt_flags & OPT_TRACE ? "Reading" : "Capturing");
 
 	if (pcap_loop(pcap_handle, -1, &my_pcap_handler, NULL) == -1) {
 		log_fatal("pcap_loop failed. %s",
