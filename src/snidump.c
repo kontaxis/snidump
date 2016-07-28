@@ -510,7 +510,9 @@ int main (int argc, char *argv[])
 	}
 #endif
 
-  drop_privileges();
+  if (geteuid() == 0) {
+    drop_privileges();
+  }
 
 	tls_set_callback_handshake_clienthello_servername(&sni_handler);
 	http_set_callback_request_host(&sni_handler);
