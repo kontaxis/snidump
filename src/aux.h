@@ -3,6 +3,7 @@
 
 /* kontaxis 2015-10-31 */
 
+#include <stdio.h>
 #include <string.h>
 #include <limits.h>
 
@@ -26,29 +27,21 @@ struct read_bytes_ctx {
  * -                 0 bytes indicate failure.
  */
 size_t read_bytes(struct read_bytes_ctx *ctx, void *out,
-	size_t must_read_bytes)
-{
-	if (!ctx) {
-		return 0;
-	}
+	size_t must_read_bytes);
 
-	if (ctx->read_bytes_available < must_read_bytes) {
-		return 0;
-	}
-
-	/* Reading must_read_bytes will cause an address overflow. */
-	if (~((size_t)0x0) - (size_t) ctx->in < must_read_bytes) {
-		return 0;
-	}
-
-	if (out != NULL) {
-		memcpy(out, ctx->in, must_read_bytes);
-	}
-	ctx->in = ((uint8_t *) ctx->in) + must_read_bytes;
-
-	ctx->read_bytes_available -= must_read_bytes;
-
-	return must_read_bytes;
-}
+#define LOG_FATAL 0
+#define LOG_WARN  1
+#define LOG_INFO  2
+#define LOG_DEBUG 3
+#define LOG_LAST  LOG_DEBUG
+#define LOG_FIRST LOG_FATAL
+#define log_fatal(...) log_message(stderr,LOG_FATAL,1,__VA_ARGS__)
+#define log_warn(...)  log_message(stderr,LOG_WARN,1,__VA_ARGS__)
+#define log_info(...)  log_message(stdout,LOG_INFO,1,__VA_ARGS__)
+#define log_debug(...) log_message(stdout,LOG_DEBUG,1,__VA_ARGS__)
+#define log_info_nonl(...)  log_message(stdout,LOG_INFO,0,__VA_ARGS__)
+#define log_debug_nonl(...) log_message(stdout,LOG_DEBUG,0,__VA_ARGS__)
+void log_message(FILE* file, int level, int newline, const char* fmt, ...);
+void drop_privileges(void);
 
 #endif
