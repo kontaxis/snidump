@@ -1,5 +1,8 @@
 /* kontaxis 2015-10-31 */
 
+#include <sys/types.h>
+#include <errno.h>
+#include <pwd.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdio.h>
@@ -332,6 +335,27 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	return;
 }
 
+void die(const char* s) {
+  fprintf(stderr, "error encountered: %s (%s)\n",
+    s, errno == 0 ? "no error" : strerror(errno));
+  abort();
+}
+
+void drop_privileges(void) {
+  struct passwd* p;
+  errno = 0;
+  p = getpwnam("nobody");
+  if (p == NULL)
+    die("getpwnam");
+  if (chroot(p->pw_dir))
+    die("chroot");
+  if (setgid(p->pw_gid) == -1)
+    die("setgid");
+  if (setuid(p->pw_uid) == -1)
+    die("setuid");
+  fprintf(stdout, "dropped privileges: uid=%d, euid=%d, gid=%d, egid=%d\n",
+    getuid(), getgid(), geteuid(), getegid());
+}
 
 void signal_handler (int signum)
 {
@@ -514,6 +538,8 @@ int main (int argc, char *argv[])
 		}
 	}
 #endif
+
+  drop_privileges();
 
 	tls_set_callback_handshake_clienthello_servername(&sni_handler);
 	http_set_callback_request_host(&sni_handler);
