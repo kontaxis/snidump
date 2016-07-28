@@ -1,12 +1,11 @@
 /* kontaxis 2015-10-31 */
 
-#include <sys/types.h>
+#include <assert.h>
 #include <errno.h>
-#include <pwd.h>
 #include <limits.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -21,6 +20,7 @@
 
 #include "tls_api.h"
 #include "http_api.h"
+#include "aux.h"
 
 #include "colors.h"
 
@@ -146,7 +146,7 @@ uint8_t flag_sni_available;
 int sni_handler (uint8_t *host_name, uint16_t host_name_length) {
 	uint16_t i;
 
-	fprintf(stdout, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:[%u] ",
+	log_info_nonl("%u.%u.%u.%u:%u -> %u.%u.%u.%u:[%u] ",
 		*(((uint8_t *)&(ip->saddr)) + 0),
 		*(((uint8_t *)&(ip->saddr)) + 1),
 		*(((uint8_t *)&(ip->saddr)) + 2),
@@ -163,7 +163,7 @@ int sni_handler (uint8_t *host_name, uint16_t host_name_length) {
 	for (i = 0; i < host_name_length; i++) {
 		CPRINT_STDOUT(C_RED_LIGHT, "%c", host_name[i]);
 	}
-	fprintf(stdout, "\n");
+	fputc('\n', stdout);
 
 	flag_sni_available = 1;
 
@@ -187,8 +187,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 
 	if (header->caplen < header->len) {
 #if __DEBUG__
-		fprintf(stderr,
-			"WARNING: caplen %u < len %u. Ignoring.\n",
+		log_warn("caplen %u < len %u. Ignoring.",
 			header->caplen, header->len);
 #endif
 		return;
@@ -201,8 +200,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	ether = (struct ether_header *) packet;
 	if (unlikely(ether->ether_type != h16ton16(ETHERTYPE_IP))) {
 #if __DEBUG__
-		fprintf(stderr,
-			"WARNING: ether->ether_type != ETHERTYPE_IP. Ignoring.\n");
+		log_warn("ether->ether_type != ETHERTYPE_IP. Ignoring.");
 #endif
 		return;
 	}
@@ -214,7 +212,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	ip = (struct my_iphdr *) (packet + SIZE_ETHERNET);
 	if (unlikely(IP_V(ip) != IPVERSION)) {
 #if __DEBUG__
-		fprintf(stderr, "WARNING: IP_V(ip) != 4. Ignoring.\n");
+		log_warn("IP_V(ip) != 4. Ignoring.");
 #endif
 		return;
 	}
@@ -269,8 +267,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 				payload = NULL;
 				payload_length = 0;
 #if __DEBUG__
-			fprintf(stderr, "WARNING: ip->protocol == %u. Ignoring.\n",
-				ip->protocol);
+			log_warn("ip->protocol == %u. Ignoring.", ip->protocol);
 #endif
 			break;
 	}
@@ -281,7 +278,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	}
 
 #if __DEBUG__
-	fprintf(stderr, "%u.%u.%u.%u:%u -> %u.%u.%u.%u:[%u] (payload:%u)\n",
+	log_debug("%u.%u.%u.%u:%u -> %u.%u.%u.%u:[%u] (payload:%u)",
 		*(((uint8_t *)&(ip->saddr)) + 0),
 		*(((uint8_t *)&(ip->saddr)) + 1),
 		*(((uint8_t *)&(ip->saddr)) + 2),
@@ -311,7 +308,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	 * (e.g., a TLS handshake record spread across packets)
 	 */
 	if (r < payload_length) {
-		fprintf(stderr, "process_TLS_record() processed %u / %u bytes.\n",
+		log_debug("process_TLS_record() processed %u / %u bytes.",
 			r, payload_length);
 	}
 #endif
@@ -324,7 +321,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	r = http_process_request(payload, payload_length);
 #if __DEBUG__
 	if (r < payload_length) {
-		fprintf(stderr, "http_process_request() processed %u / %u bytes.\n",
+		log_debug("http_process_request() processed %u / %u bytes.",
 			r, payload_length);
 	}
 #endif
@@ -335,35 +332,13 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	return;
 }
 
-void die(const char* s) {
-  fprintf(stderr, "error encountered: %s (%s)\n",
-    s, errno == 0 ? "no error" : strerror(errno));
-  abort();
-}
-
-void drop_privileges(void) {
-  struct passwd* p;
-  errno = 0;
-  p = getpwnam("nobody");
-  if (p == NULL)
-    die("getpwnam");
-  if (chroot(p->pw_dir))
-    die("chroot");
-  if (setgid(p->pw_gid) == -1)
-    die("setgid");
-  if (setuid(p->pw_uid) == -1)
-    die("setuid");
-  fprintf(stdout, "dropped privileges: uid=%d, euid=%d, gid=%d, egid=%d\n",
-    getuid(), getgid(), geteuid(), getegid());
-}
-
 void signal_handler (int signum)
 {
 	switch(signum) {
 		case SIGTERM:
 		case SIGINT:
 		case SIGSEGV:
-			fprintf(stdout, "\n");
+      fputc('\n', stdout);
 			pcap_breakloop(pcap_handle);
 			break;
 		default:
@@ -452,39 +427,38 @@ int main (int argc, char *argv[])
 	}
 
 	if (!(opt_flags & (OPT_DEVICE | OPT_TRACE))) {
-		fprintf(stderr,
-			"[FATAL] Missing target interface or trace file. Try with -h.\n");
+		log_fatal("Missing target interface or trace file. Try with -h.");
 		return -1;
 	}
 
 #if __DEBUG__
 #if !__BIG_ENDIAN__
-	fprintf(stderr, "LITTLE_ENDIAN\n");
+	log_debug("LITTLE_ENDIAN");
 #else
-	fprintf(stderr, "BIG_ENDIAN\n");
+	log_debug("BIG_ENDIAN");
 #endif
 #endif
 
-	fprintf(stdout, "[*] PID: %u\n", getpid());
+	log_info("[*] PID: %u", getpid());
 
 	if (opt_flags & OPT_DEVICE) {
-		fprintf(stdout, "[*] Device: '%s'\n", device_name);
-		fprintf(stdout, "[*] Promiscuous: %d\n", PROMISCUOUS);
+		log_info("[*] Device: '%s'", device_name);
+		log_info("[*] Promiscuous: %d", PROMISCUOUS);
 
 		if (!(pcap_handle =
 			pcap_open_live(device_name, SNAPLEN, PROMISCUOUS, PCAP_TIMEOUT,
 			errbuf))) {
-			fprintf(stderr, "[FATAL] %s\n", errbuf);
+			log_fatal("%s", errbuf);
 			return -1;
 		}
 	}
 
 	if (opt_flags & OPT_TRACE) {
-		fprintf(stdout, "[*] Trace: '%s'\n", trace_fname);
+		log_info("[*] Trace: '%s'", trace_fname);
 
 		if (!(pcap_handle =
 			pcap_open_offline(trace_fname, errbuf))) {
-			fprintf(stderr, "[FATAL] %s\n", errbuf);
+			log_fatal("%s", errbuf);
 			return -1;
 		}
 	}
@@ -495,19 +469,17 @@ int main (int argc, char *argv[])
 		opt_flags |= OPT_BPF;
 	}
 
-	fprintf(stdout, "[*] BPF: '%s'\n", bpf_s);
+	log_info("[*] BPF: '%s'", bpf_s);
 
 	if (pcap_compile(pcap_handle, &bpf, BPF, BPF_OPTIMIZE,
 		PCAP_NETMASK_UNKNOWN) == -1) {
-		fprintf(stderr, "[FATAL] Couldn't parse filter. %s\n",
-			pcap_geterr(pcap_handle));
+		log_fatal("Couldn't parse filter. %s", pcap_geterr(pcap_handle));
 		pcap_close(pcap_handle);
 		return -1;
 	}
 
 	if (pcap_setfilter(pcap_handle, &bpf) == -1) {
-		fprintf(stderr, "[FATAL] Couldn't install filter. %s\n",
-			pcap_geterr(pcap_handle));
+		log_fatal("Couldn't install filter. %s", pcap_geterr(pcap_handle));
 		pcap_close(pcap_handle);
 		return -1;
 	}
@@ -517,11 +489,10 @@ int main (int argc, char *argv[])
 	pcap_dumper_handle = NULL;
 
 	if (opt_flags & OPT_DUMP) {
-		fprintf(stdout, "[*] Dump: '%s'\n", dump_fname);
+		log_info("[*] Dump: '%s'", dump_fname);
 
 		if (!(pcap_dumper_handle = pcap_dump_open(pcap_handle, dump_fname))) {
-			fprintf(stderr, "[WARNING] Couldn't create dump file. %s\n",
-				pcap_geterr(pcap_handle));
+			log_warn("Couldn't create dump file. %s", pcap_geterr(pcap_handle));
 		}
 	}
 
@@ -552,35 +523,33 @@ int main (int argc, char *argv[])
 
 	if (sigaction(SIGINT, &act, NULL)) {
 		perror("sigaction");
-		fprintf(stderr,
-			"[WARNING] Failed to set signal handler for SIGINT.\n");
+		log_warn("Failed to set signal handler for SIGINT.",
+      strerror(errno));
 	}
 
 	if (sigaction(SIGTERM, &act, NULL)) {
-		perror("sigaction");
-		fprintf(stderr,
-			"[WARNING] Failed to set signal handler for SIGTERM.\n");
+		log_warn("Failed to set signal handler for SIGTERM: %s.",
+      strerror(errno));
 	}
 
 	if (sigaction(SIGSEGV, &act, NULL)) {
-		perror("sigaction");
-		fprintf(stderr,
-			"[WARNING] Failed to set signal handler for SIGSEGV.\n");
+		log_warn("Failed to set signal handler for SIGSEGV: %s.",
+      strerror(errno));
 	}
 
-	fprintf(stderr, "Capturing ...\n");
+	log_info("Capturing ...");
 
 	if (pcap_loop(pcap_handle, -1, &my_pcap_handler, NULL) == -1) {
-		fprintf(stderr, "[FATAL] pcap_loop failed. %s\n",
+		log_fatal("pcap_loop failed. %s",
 			pcap_geterr(pcap_handle));
 	}
 
 	if (!(opt_flags & OPT_TRACE)) {
 		if (pcap_stats(pcap_handle, &ps) == -1) {
-			fprintf(stderr, "pcap_stats failed. %s\n", pcap_geterr(pcap_handle));
+			log_info("pcap_stats failed. %s", pcap_geterr(pcap_handle));
 		} else {
-			fprintf(stderr, "%u packets received\n", ps.ps_recv);
-			fprintf(stderr, "%u packets dropped\n", ps.ps_drop + ps.ps_ifdrop);
+			log_info("%u packets received", ps.ps_recv);
+			log_info("%u packets dropped", ps.ps_drop + ps.ps_ifdrop);
 		}
 	}
 
@@ -591,13 +560,13 @@ int main (int argc, char *argv[])
 	if (pcap_dumper_handle) {
 		pcap_dump_close(pcap_dumper_handle);
 
-		fprintf(stderr, "Written %s\n", dump_fname);
+		log_info("Written %s", dump_fname);
 		if (!(opt_flags & OPT_DUMP)) {
 			free(dump_fname);
 		}
 	}
 
-	fprintf(stderr, "Goodbye\n");
+	log_info("Goodbye");
 
 	return 0;
 }
