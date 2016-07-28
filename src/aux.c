@@ -63,6 +63,7 @@ void drop_privileges(void) {
 void log_message(FILE* file, int level, int newline, const char* fmt, ...) {
   va_list ap;
   struct timeval tv;
+
   const char* log_levels[] = { "FATAL", "WARN", "INFO", "DEBUG" };
   assert(file != NULL);
   assert(level >= LOG_FIRST);

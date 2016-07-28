@@ -1,5 +1,6 @@
 /* kontaxis 2015-10-31 */
 
+#include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -136,6 +137,7 @@ pcap_dumper_t * pcap_dumper_handle;
 
 
 struct my_iphdr *ip;
+struct timeval tval;
 
 uint16_t src_port;
 uint16_t dst_port;
@@ -146,7 +148,8 @@ uint8_t flag_sni_available;
 int sni_handler (uint8_t *host_name, uint16_t host_name_length) {
 	uint16_t i;
 
-	log_info_nonl("%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u ",
+	log_info_nonl("%ld.%d %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u ",
+    tval.tv_sec, tval.tv_usec,
 		*(((uint8_t *)&(ip->saddr)) + 0),
 		*(((uint8_t *)&(ip->saddr)) + 1),
 		*(((uint8_t *)&(ip->saddr)) + 2),
@@ -210,6 +213,7 @@ void my_pcap_handler (uint8_t *user, const struct pcap_pkthdr *header,
 	assert(header->caplen >= SIZE_ETHERNET + MIN_SIZE_IP);
 
 	ip = (struct my_iphdr *) (packet + SIZE_ETHERNET);
+  tval = header->ts;
 	if (unlikely(IP_V(ip) != IPVERSION)) {
 #if __DEBUG__
 		log_warn("IP_V(ip) != 4. Ignoring.");
