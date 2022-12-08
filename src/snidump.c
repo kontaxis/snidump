@@ -20,6 +20,8 @@
 #include "http_api.h"
 
 #include "colors.h"
+uint8_t istty_stdout;
+uint8_t istty_stderr;
 
 /* References:
  *   netinet/ether.h
